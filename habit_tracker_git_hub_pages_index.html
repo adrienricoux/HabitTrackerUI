@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Daily Habits — GitHub Pages</title>
+    <!-- Tailwind (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React 18 + ReactDOM (CDN) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel (so we can write JSX directly in this single file) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <meta name="description" content="A lightweight daily habit tracker that saves to your browser (localStorage)." />
+  </head>
+  <body class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div id="root"></div>
+
+    <script type="text/babel">
+      const { useState, useEffect } = React;
+
+      // --- Tiny inline SVG Icon components (no external deps) ---
+      const Icon = ({ children, className = '', size = 24 }) => (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          width={size}
+          height={size}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={className}
+        >
+          {children}
+        </svg>
+      );
+      const CalendarIcon = (props) => (
+        <Icon {...props}>
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="16" y1="2" x2="16" y2="6"></line>
+          <line x1="8" y1="2" x2="8" y2="6"></line>
+          <line x1="3" y1="10" x2="21" y2="10"></line>
+        </Icon>
+      );
+      const CheckCircleIcon = (props) => (
+        <Icon {...props}>
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+          <polyline points="22 4 12 14.01 9 11.01" />
+        </Icon>
+      );
+      const CircleIcon = (props) => (
+        <Icon {...props}>
+          <circle cx="12" cy="12" r="10" />
+        </Icon>
+      );
+      const FlameIcon = (props) => (
+        <Icon {...props}>
+          <path d="M8.5 14.5A3.5 3.5 0 0 0 12 18a3.5 3.5 0 0 0 3.5-3.5c0-2-1.5-3.5-1.5-5.5 0-1.5.5-2.5.5-2.5S11 7 11 10c0 2-2.5 3-2.5 4.5Z" />
+          <path d="M12 22c-4 0-7-3-7-7 0-5 5-9 7-13 2 4 7 8 7 13 0 4-3 7-7 7Z" />
+        </Icon>
+      );
+      const ChevronLeftIcon = (props) => (
+        <Icon {...props}><polyline points="15 18 9 12 15 6" /></Icon>
+      );
+      const ChevronRightIcon = (props) => (
+        <Icon {...props}><polyline points="9 18 15 12 9 6" /></Icon>
+      );
+      const EditIcon = (props) => (
+        <Icon {...props}>
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+          <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5Z" />
+        </Icon>
+      );
+      const TrashIcon = (props) => (
+        <Icon {...props}>
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+          <path d="M10 11v6M14 11v6" />
+          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+        </Icon>
+      );
+      const PlusIcon = (props) => (
+        <Icon {...props}><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></Icon>
+      );
+      const CheckIcon = (props) => (
+        <Icon {...props}><polyline points="20 6 9 17 4 12" /></Icon>
+      );
+      const XIcon = (props) => (
+        <Icon {...props}><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></Icon>
+      );
+
+      function HabitTracker() {
+        const [currentDate, setCurrentDate] = useState(new Date());
+        const [habits, setHabits] = useState([]);
+        const [completionData, setCompletionData] = useState({});
+        const [newHabit, setNewHabit] = useState('');
+        const [showAddForm, setShowAddForm] = useState(false);
+        const [view, setView] = useState('today');
+        const [editingHabit, setEditingHabit] = useState(null);
+        const [editText, setEditText] = useState('');
+
+        // Load from localStorage
+        useEffect(() => {
+          try {
+            const savedHabits = localStorage.getItem('habits');
+            const savedCompletions = localStorage.getItem('completionData');
+
+            if (savedHabits) {
+              setHabits(JSON.parse(savedHabits));
+            } else {
+              const nowIso = new Date().toISOString();
+              setHabits([
+                { id: 1, name: 'Log Breakfast', createdDate: nowIso },
+                { id: 2, name: 'Drink 2.5 litres', createdDate: nowIso },
+                { id: 3, name: 'Eat 2x Fruits', createdDate: nowIso },
+                { id: 4, name: 'Bring dog for a walk', createdDate: nowIso },
+                { id: 5, name: 'Complete 5000 steps', createdDate: nowIso },
+                { id: 6, name: 'Log Snacks', createdDate: nowIso },
+                { id: 7, name: 'Log Dinner', createdDate: nowIso }
+              ]);
+            }
+            if (savedCompletions) setCompletionData(JSON.parse(savedCompletions));
+          } catch (e) {
+            console.error('Failed to load from localStorage', e);
+          }
+        }, []);
+
+        // Persist
+        useEffect(() => {
+          try { localStorage.setItem('habits', JSON.stringify(habits)); } catch {}
+        }, [habits]);
+        useEffect(() => {
+          try { localStorage.setItem('completionData', JSON.stringify(completionData)); } catch {}
+        }, [completionData]);
+
+        const formatDateKey = (date) => date.toISOString().split('T')[0];
+        const getCurrentDateKey = () => formatDateKey(currentDate);
+
+        const addHabit = () => {
+          if (!newHabit.trim()) return;
+          const habit = { id: Date.now(), name: newHabit.trim(), createdDate: new Date().toISOString() };
+          setHabits([...habits, habit]);
+          setNewHabit('');
+          setShowAddForm(false);
+        };
+
+        const removeHabit = (id) => {
+          setHabits(habits.filter(h => h.id !== id));
+          const next = { ...completionData };
+          Object.keys(next).forEach((date) => {
+            if (next[date] && id in next[date]) delete next[date][id];
+            if (next[date] && Object.keys(next[date]).length === 0) delete next[date];
+          });
+          setCompletionData(next);
+        };
+
+        const startEditingHabit = (habit) => { setEditingHabit(habit.id); setEditText(habit.name); };
+        const saveEditingHabit = () => {
+          if (editText.trim()) {
+            setHabits(habits.map(h => (h.id === editingHabit ? { ...h, name: editText.trim() } : h)));
+          }
+          setEditingHabit(null); setEditText('');
+        };
+        const cancelEditingHabit = () => { setEditingHabit(null); setEditText(''); };
+
+        const toggleHabit = (habitId) => {
+          const dateKey = getCurrentDateKey();
+          const next = { ...completionData };
+          if (!next[dateKey]) next[dateKey] = {};
+          next[dateKey][habitId] = !next[dateKey][habitId];
+          setCompletionData(next);
+        };
+
+        const isHabitCompleted = (habitId, date = currentDate) => {
+          const key = formatDateKey(date);
+          return Boolean(completionData[key]?.[habitId]);
+        };
+
+        const calculateStreak = (habitId) => {
+          let streak = 0;
+          const d = new Date(currentDate);
+          if (!isHabitCompleted(habitId, currentDate)) d.setDate(d.getDate() - 1);
+          // count backwards while completed
+          while (true) {
+            if (isHabitCompleted(habitId, d)) { streak++; d.setDate(d.getDate() - 1); } else { break; }
+          }
+          return streak;
+        };
+
+        const getTodayStats = () => {
+          const key = getCurrentDateKey();
+          const today = completionData[key] || {};
+          const completedCount = Object.values(today).filter(Boolean).length;
+          const totalHabits = habits.length;
+          const completionPercentage = totalHabits ? Math.round((completedCount / totalHabits) * 100) : 0;
+          return { completedCount, totalHabits, completionPercentage };
+        };
+
+        const navigateDate = (direction) => {
+          const nd = new Date(currentDate);
+          nd.setDate(nd.getDate() + direction);
+          setCurrentDate(nd);
+        };
+
+        const isToday = () => {
+          const today = new Date();
+          return formatDateKey(currentDate) === formatDateKey(today);
+        };
+
+        const getDateDisplay = () => {
+          const today = new Date();
+          const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+          const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+          if (formatDateKey(currentDate) === formatDateKey(today)) return 'Today';
+          if (formatDateKey(currentDate) === formatDateKey(yesterday)) return 'Yesterday';
+          if (formatDateKey(currentDate) === formatDateKey(tomorrow)) return 'Tomorrow';
+          return currentDate.toLocaleDateString('en-GB', { weekday: 'long', month: 'long', day: 'numeric' });
+        };
+
+        const getOverallStats = () => {
+          const totalDays = Object.keys(completionData).length;
+          let totalCompletions = 0; let totalPossible = 0;
+          Object.entries(completionData).forEach(([date, dayData]) => {
+            const habitsForDay = habits.filter(h => new Date(h.createdDate) <= new Date(date + 'T23:59:59'));
+            totalPossible += habitsForDay.length;
+            totalCompletions += Object.values(dayData).filter(Boolean).length;
+          });
+          const overallPercentage = totalPossible ? Math.round((totalCompletions / totalPossible) * 100) : 0;
+          return { totalDays, overallPercentage, totalCompletions };
+        };
+
+        const { completedCount, totalHabits, completionPercentage } = getTodayStats();
+        const { totalDays, overallPercentage } = getOverallStats();
+
+        const renderTodayView = () => (
+          <>
+            {/* Date Navigation */}
+            <div className="bg-white rounded-2xl shadow-lg p-4 mb-4">
+              <div className="flex items-center justify-between">
+                <button onClick={() => navigateDate(-1)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                  <ChevronLeftIcon size={20} className="text-gray-600" />
+                </button>
+                <div className="text-center">
+                  <h2 className="text-lg font-semibold text-gray-800">{getDateDisplay()}</h2>
+                  <p className="text-sm text-gray-500">
+                    {currentDate.toLocaleDateString('en-GB', { year: 'numeric', month: 'long', day: 'numeric' })}
+                  </p>
+                </div>
+                <button onClick={() => navigateDate(1)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                  <ChevronRightIcon size={20} className="text-gray-600" />
+                </button>
+              </div>
+            </div>
+
+            {/* Progress */}
+            <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
+              <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl p-4 text-white">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm opacity-90">Progress</span>
+                  <span className="text-2xl font-bold">{completionPercentage}%</span>
+                </div>
+                <div className="w-full bg-white/20 rounded-full h-2">
+                  <div className="bg-white rounded-full h-2 transition-all duration-300" style={{ width: `${completionPercentage}%` }}></div>
+                </div>
+                <p className="text-xs opacity-90 mt-2">{completedCount} of {totalHabits} habits completed</p>
+              </div>
+            </div>
+
+            {/* Habits */}
+            <div className="space-y-3 mb-6">
+              {habits.map((habit) => {
+                const completed = isHabitCompleted(habit.id);
+                const streak = calculateStreak(habit.id);
+                const isEditing = editingHabit === habit.id;
+                return (
+                  <div key={habit.id} className={`bg-white rounded-xl shadow-sm border-2 transition-all duration-200 ${completed ? 'border-green-200 bg-green-50' : 'border-gray-200 hover:border-indigo-200'}`}>
+                    <div className="p-4">
+                      <div className="flex items-center gap-3">
+                        <button onClick={() => toggleHabit(habit.id)} className={`flex-shrink-0 transition-colors duration-200 ${completed ? 'text-green-500 hover:text-green-600' : 'text-gray-300 hover:text-indigo-500'}`}>
+                          {completed ? <CheckCircleIcon className="fill-current" size={24} /> : <CircleIcon size={24} />}
+                        </button>
+                        <div className="flex-1">
+                          {isEditing ? (
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={editText}
+                                onChange={(e) => setEditText(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') saveEditingHabit(); if (e.key === 'Escape') cancelEditingHabit(); }}
+                                className="flex-1 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                                autoFocus
+                              />
+                              <button onClick={saveEditingHabit} className="text-green-600 hover:text-green-700 transition-colors"><CheckIcon size={16} /></button>
+                              <button onClick={cancelEditingHabit} className="text-gray-500 hover:text-gray-700 transition-colors"><XIcon size={16} /></button>
+                            </div>
+                          ) : (
+                            <>
+                              <h3 className={`font-medium ${completed ? 'text-green-800 line-through' : 'text-gray-800'}`}>{habit.name}</h3>
+                              <div className="flex items-center gap-2 mt-1">
+                                <FlameIcon size={14} className="text-orange-500" />
+                                <span className="text-xs text-gray-600">{streak} day streak</span>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                        {!isEditing && (
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => startEditingHabit(habit)} className="flex-shrink-0 text-gray-400 hover:text-blue-500 transition-colors duration-200 p-1"><EditIcon size={16} /></button>
+                            <button onClick={() => removeHabit(habit.id)} className="flex-shrink-0 text-gray-400 hover:text-red-500 transition-colors duration-200 p-1"><TrashIcon size={16} /></button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Add Habit (today only) */}
+            {isToday() && (
+              showAddForm ? (
+                <div className="bg-white rounded-xl shadow-sm border-2 border-indigo-200 p-4 mb-4">
+                  <input
+                    type="text"
+                    placeholder="Enter new habit..."
+                    value={newHabit}
+                    onChange={(e) => setNewHabit(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addHabit()}
+                    className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    autoFocus
+                  />
+                  <div className="flex gap-2 mt-3">
+                    <button onClick={addHabit} className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors duration-200 font-medium">Add Habit</button>
+                    <button onClick={() => { setShowAddForm(false); setNewHabit(''); }} className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors duration-200">Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={() => setShowAddForm(true)} className="w-full bg-white border-2 border-dashed border-gray-300 rounded-xl p-4 hover:border-indigo-400 hover:bg-indigo-50 transition-all duration-200 flex items-center justify-center gap-2 text-gray-600 hover:text-indigo-600">
+                  <PlusIcon size={20} />
+                  <span className="font-medium">Add New Habit</span>
+                </button>
+              )
+            )}
+
+            {/* Success Banner */}
+            {completionPercentage === 100 && totalHabits > 0 && (
+              <div className="mt-6 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl p-4 text-white text-center">
+                <h3 className="font-bold text-lg">🎉 Amazing Work!</h3>
+                <p className="text-sm opacity-90">You've completed all your habits for {getDateDisplay().toLowerCase()}!</p>
+              </div>
+            )}
+          </>
+        );
+
+        const renderStatsView = () => (
+          <div className="bg-white rounded-2xl shadow-lg p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-6">Your Statistics</h2>
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="bg-blue-50 rounded-xl p-4 text-center">
+                <div className="text-2xl font-bold text-blue-600">{Object.keys(completionData).length}</div>
+                <div className="text-sm text-gray-600">Days Tracked</div>
+              </div>
+              <div className="bg-green-50 rounded-xl p-4 text-center">
+                <div className="text-2xl font-bold text-green-600">{getOverallStats().overallPercentage}%</div>
+                <div className="text-sm text-gray-600">Overall Rate</div>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <h3 className="font-semibold text-gray-700">Current Streaks</h3>
+              {habits.map(habit => (
+                <div key={habit.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                  <span className="text-sm text-gray-700">{habit.name}</span>
+                  <div className="flex items-center gap-1">
+                    <FlameIcon size={16} className="text-orange-500" />
+                    <span className="font-semibold text-gray-800">{calculateStreak(habit.id)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+
+        return (
+          <div className="p-4">
+            <div className="max-w-md mx-auto">
+              <div className="bg-white rounded-2xl shadow-lg p-4 mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                    <CalendarIcon className="text-indigo-600" size={24} />
+                    Daily Habits
+                  </h1>
+                </div>
+                <div className="flex bg-gray-100 rounded-lg p-1">
+                  <button onClick={() => setView('today')} className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${view === 'today' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}>Daily View</button>
+                  <button onClick={() => setView('stats')} className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${view === 'stats' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}>Statistics</button>
+                </div>
+              </div>
+              {view === 'today' ? renderTodayView() : renderStatsView()}
+            </div>
+          </div>
+        );
+      }
+
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(<HabitTracker />);
+    </script>
+  </body>
+</html>
